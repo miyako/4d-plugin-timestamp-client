@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<xliff version="1.0" xmlns:d4="http://www.4d.com/d4-ns">
+    
+    <header>
+        <note>Timestamp</note>
+    </header>
+    
+    <group resname="themes">
+        <trans-unit id="" resname="B232D7C6554F4C46B722F1610DB9E30A" translate="no">
+            <source>Timestamp Request Format</source>
+        </trans-unit>
+    </group>
+    <group restype="x-4DK#" d4:groupName="B232D7C6554F4C46B722F1610DB9E30A">
+        <trans-unit d4:value="0:L" id="B232D7C6554F4C46B722F1610DB9E30A.1">
+            <source>Timestamp Request Text</source>
+        </trans-unit>
+        <trans-unit d4:value="1:L" id="B232D7C6554F4C46B722F1610DB9E30A.2">
+            <source>Timestamp Request ASN1</source>
+        </trans-unit>
+    </group>
+
+    <group resname="themes">
+        <trans-unit id="" resname="25594645BDEB4450B9C4BE122B16B45A" translate="no">
+            <source>Timestamp Hash Algorithm</source>
+        </trans-unit>
+    </group>
+    <group restype="x-4DK#" d4:groupName="25594645BDEB4450B9C4BE122B16B45A">
+        <trans-unit d4:value="0:L" id="25594645BDEB4450B9C4BE122B16B45A.1">
+            <source>Timestamp Hash Algorithm SHA512</source>
+        </trans-unit>
+        <trans-unit d4:value="1:L" id="25594645BDEB4450B9C4BE122B16B45A.2">
+            <source>Timestamp Hash Algorithm SHA384</source>
+        </trans-unit>
+        <trans-unit d4:value="2:L" id="25594645BDEB4450B9C4BE122B16B45A.3">
+            <source>Timestamp Hash Algorithm SHA256</source>
+        </trans-unit>
+        <trans-unit d4:value="3:L" id="25594645BDEB4450B9C4BE122B16B45A.4">
+            <source>Timestamp Hash Algorithm SHA224</source>
+        </trans-unit>
+        <trans-unit d4:value="4:L" id="25594645BDEB4450B9C4BE122B16B45A.5">
+            <source>Timestamp Hash Algorithm SHA1</source>
+        </trans-unit>
+    </group>
+    
+</xliff>

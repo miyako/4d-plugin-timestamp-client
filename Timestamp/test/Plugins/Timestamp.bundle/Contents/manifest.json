@@ -1,0 +1,16 @@
+{
+    "name": "Timestamp",
+    "id": 20000,
+    "commands": [
+        {
+            "theme": "Timestamp",
+            "syntax": "Create timestamp query(&O;&J):O",
+            "threadSafe": true
+        },
+        {
+            "theme": "Timestamp",
+            "syntax": "Verify timestamp request(&O;&O;&J):J",
+            "threadSafe": true
+        }
+    ]
+}

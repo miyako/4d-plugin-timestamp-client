@@ -1,0 +1,23 @@
+﻿[
+	{
+		"line": 33,
+		"method": {
+			"type": 1,
+			"methodName": "TEST_freetsa"
+		}
+	},
+	{
+		"line": 30,
+		"method": {
+			"type": 1,
+			"methodName": "TEST_freetsa"
+		}
+	},
+	{
+		"line": 27,
+		"method": {
+			"type": 1,
+			"methodName": "TEST_safestamper"
+		}
+	}
+]
