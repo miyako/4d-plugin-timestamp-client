@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Created by 4D Developer on:Tue, 10 Mar 2020 23:54:59 GMT-->
+<!-- Created by 4D Developer on:Sat, 18 Apr 2020 12:42:14 GMT-->
 <ErrorList>
 	<Method name="update_manifest_json">
-		<Error line="0">The type of $J is unknown</Error>
-		<Error line="0">The type of $O is unknown</Error>
+		<Error line="0">$J のタイプが不明です。</Error>
+		<Error line="0">$O のタイプが不明です。</Error>
 	</Method>
 </ErrorList>

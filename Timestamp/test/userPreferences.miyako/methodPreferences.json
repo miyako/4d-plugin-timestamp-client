@@ -180,13 +180,13 @@
 		"stamp": "2019-07-07T00:13:49.000Z"
 	},
 	"Sources/Methods/update_manifest_json.4dm": {
-		"startSelection": 44,
-		"endSelection": 44,
-		"firstSelectedLine": 10,
-		"lastSelectedLine": 10,
+		"startSelection": 0,
+		"endSelection": 0,
+		"firstSelectedLine": 0,
+		"lastSelectedLine": 0,
 		"folding": [],
 		"bookmarks": [],
-		"stamp": "2019-12-13T04:37:40.619Z"
+		"stamp": "2019-12-13T04:37:40.000Z"
 	},
 	"Sources/Methods/TEST_TSR.4dm": {
 		"startSelection": 53,
@@ -209,11 +209,11 @@
 	"Sources/Methods/TEST_freetsa.4dm": {
 		"startSelection": 0,
 		"endSelection": 0,
-		"firstSelectedLine": 22,
-		"lastSelectedLine": 22,
+		"firstSelectedLine": 26,
+		"lastSelectedLine": 26,
 		"folding": [],
 		"bookmarks": [],
-		"stamp": "2020-03-10T22:38:37.000Z"
+		"stamp": "2020-04-18T11:27:45.756Z"
 	},
 	"Sources/Methods/TEST_verify.4dm": {
 		"startSelection": 0,
@@ -225,30 +225,48 @@
 		"stamp": "2020-03-10T22:28:09.821Z"
 	},
 	"Sources/Methods/TEST_safestamper.4dm": {
-		"startSelection": 7,
-		"endSelection": 7,
-		"firstSelectedLine": 32,
-		"lastSelectedLine": 32,
+		"startSelection": 23,
+		"endSelection": 23,
+		"firstSelectedLine": 39,
+		"lastSelectedLine": 39,
 		"folding": [],
 		"bookmarks": [],
-		"stamp": "2020-03-10T23:53:40.253Z"
+		"stamp": "2020-04-18T11:27:04.410Z"
 	},
 	"Sources/Methods/TEST_freetsa_verify.4dm": {
-		"startSelection": 15,
-		"endSelection": 15,
-		"firstSelectedLine": 6,
-		"lastSelectedLine": 6,
+		"startSelection": 0,
+		"endSelection": 0,
+		"firstSelectedLine": 0,
+		"lastSelectedLine": 0,
 		"folding": [],
 		"bookmarks": [],
-		"stamp": "2020-03-10T22:28:09.821Z"
+		"stamp": "2020-04-18T10:05:54.759Z"
 	},
 	"Sources/Methods/TEST_safestamper_verify.4dm": {
 		"startSelection": 0,
 		"endSelection": 0,
-		"firstSelectedLine": 15,
-		"lastSelectedLine": 15,
+		"firstSelectedLine": 0,
+		"lastSelectedLine": 0,
 		"folding": [],
 		"bookmarks": [],
-		"stamp": "2020-03-10T23:54:49.895Z"
+		"stamp": "2020-04-18T10:05:59.958Z"
+	},
+	"Sources/Methods/TEST_verisign.4dm": {
+		"startSelection": 0,
+		"endSelection": 0,
+		"firstSelectedLine": 29,
+		"lastSelectedLine": 29,
+		"folding": [],
+		"bookmarks": [],
+		"stamp": "2020-04-18T12:34:25.519Z"
+	},
+	"Sources/Methods/TEST_apple.4dm": {
+		"startSelection": 57,
+		"endSelection": 18,
+		"firstSelectedLine": 28,
+		"lastSelectedLine": 28,
+		"folding": [],
+		"bookmarks": [],
+		"stamp": "2020-04-18T11:16:19.838Z"
 	}
 }

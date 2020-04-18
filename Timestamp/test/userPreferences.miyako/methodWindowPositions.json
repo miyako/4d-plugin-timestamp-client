@@ -168,8 +168,8 @@
 		"height": 799
 	},
 	"Sources/Methods/TEST_freetsa.4dm": {
-		"left": 147,
-		"top": 206,
+		"left": 258,
+		"top": 150,
 		"width": 1071,
 		"height": 650
 	},
@@ -186,10 +186,10 @@
 		"height": 573
 	},
 	"Sources/Methods/TEST_safestamper.4dm": {
-		"left": 194,
-		"top": 392,
-		"width": 1035,
-		"height": 573
+		"left": 349,
+		"top": 136,
+		"width": 1119,
+		"height": 735
 	},
 	"Sources/Methods/TEST_freetsa_verify.4dm": {
 		"left": 194,
@@ -202,5 +202,29 @@
 		"top": 392,
 		"width": 1035,
 		"height": 573
+	},
+	"Trash/Methods/(TEST_digicert1).4dm": {
+		"left": 266,
+		"top": 183,
+		"width": 1155,
+		"height": 609
+	},
+	"Trash/Methods/(TEST_digicert).4dm": {
+		"left": 515,
+		"top": 243,
+		"width": 1155,
+		"height": 609
+	},
+	"Sources/Methods/TEST_verisign.4dm": {
+		"left": 198,
+		"top": 218,
+		"width": 1071,
+		"height": 650
+	},
+	"Sources/Methods/TEST_apple.4dm": {
+		"left": 150,
+		"top": 268,
+		"width": 1071,
+		"height": 650
 	}
 }

@@ -11,5 +11,11 @@
 			"generate_file_from_template"
 		]
 	},
+	"# FAIL": {
+		"methods": [
+			"TEST_verisign",
+			"TEST_apple"
+		]
+	},
 	"trash": {}
 }

@@ -374,15 +374,19 @@ X509_STORE *create_cert_store(const char *CApath, const char *CAfile,
 
     cert_ctx = X509_STORE_new();
     X509_STORE_set_verify_cb(cert_ctx, verify_cb);
+    
     if (CApath != NULL) {
         lookup = X509_STORE_add_lookup(cert_ctx, X509_LOOKUP_hash_dir());
         if (lookup == NULL) {
-
+            
             goto err;
         }
         if (!X509_LOOKUP_add_dir(lookup, CApath, X509_FILETYPE_PEM)) {
-
-            goto err;
+            
+        }
+        
+        if (!X509_LOOKUP_add_dir(lookup, CApath, X509_FILETYPE_ASN1 /* DER */)) {
+            
         }
     }
 
@@ -393,8 +397,12 @@ X509_STORE *create_cert_store(const char *CApath, const char *CAfile,
             goto err;
         }
         if (!X509_LOOKUP_load_file(lookup, CAfile, X509_FILETYPE_PEM)) {
-
-            goto err;
+            
+            if (!X509_LOOKUP_load_file(lookup, CAfile, X509_FILETYPE_ASN1 /* DER */)) {
+                
+                goto err;
+                
+            }
         }
     }
 
@@ -484,6 +492,396 @@ bool ob_get_posix_path(PA_ObjectRef options, const wchar_t *key, CUTF8String *va
 
 #pragma mark -
 
+#if USE_STATIC_OPENSSL_FONCTION_FOR_TRACE
+
+#include <openssl/asn1.h>
+
+struct TS_resp_st {
+    TS_STATUS_INFO *status_info;
+    PKCS7 *token;
+    TS_TST_INFO *tst_info;
+};
+
+struct TS_status_info_st {
+    ASN1_INTEGER *status;
+    STACK_OF(ASN1_UTF8STRING) *text;
+    ASN1_BIT_STRING *failure_info;
+};
+
+#define TS_STATUS_BUF_SIZE      256
+
+static const char *ts_status_text[] = {
+    "granted",
+    "grantedWithMods",
+    "rejection",
+    "waiting",
+    "revocationWarning",
+    "revocationNotification"
+};
+
+# define OSSL_NELEM(x)    (sizeof(x)/sizeof((x)[0]))
+
+# define ossl_assert(x) ((x) != 0)
+
+char *sk_ASN1_UTF8STRING2text(STACK_OF(ASN1_UTF8STRING) *text, const char *sep,
+                              size_t max_len /* excluding NUL terminator */)
+{
+    int i;
+    ASN1_UTF8STRING *current;
+    size_t length = 0, sep_len;
+    char *result = NULL;
+    char *p;
+
+    if (!ossl_assert(sep != NULL))
+        return NULL;
+    sep_len = strlen(sep);
+
+    for (i = 0; i < sk_ASN1_UTF8STRING_num(text); ++i) {
+        current = sk_ASN1_UTF8STRING_value(text, i);
+        if (i > 0)
+            length += sep_len;
+        length += ASN1_STRING_length(current);
+        if (length > max_len)
+            return NULL;
+    }
+    if ((result = (char *)OPENSSL_malloc(length + 1)) == NULL)
+        return NULL;
+
+    for (i = 0, p = result; i < sk_ASN1_UTF8STRING_num(text); ++i) {
+        current = sk_ASN1_UTF8STRING_value(text, i);
+        length = ASN1_STRING_length(current);
+        if (i > 0 && sep_len > 0) {
+            strncpy(p, sep, sep_len + 1);
+            p += sep_len;
+        }
+        strncpy(p, (const char *)ASN1_STRING_get0_data(current), length);
+        p += length;
+    }
+    *p = '\0';
+
+    return result;
+}
+
+static char *ts_get_status_text(STACK_OF(ASN1_UTF8STRING) *text)
+{
+    return sk_ASN1_UTF8STRING2text(text, "/", TS_MAX_STATUS_LENGTH);
+}
+
+static struct {
+    int code;
+    const char *text;
+} ts_failure_info[] = {
+    {TS_INFO_BAD_ALG, "badAlg"},
+    {TS_INFO_BAD_REQUEST, "badRequest"},
+    {TS_INFO_BAD_DATA_FORMAT, "badDataFormat"},
+    {TS_INFO_TIME_NOT_AVAILABLE, "timeNotAvailable"},
+    {TS_INFO_UNACCEPTED_POLICY, "unacceptedPolicy"},
+    {TS_INFO_UNACCEPTED_EXTENSION, "unacceptedExtension"},
+    {TS_INFO_ADD_INFO_NOT_AVAILABLE, "addInfoNotAvailable"},
+    {TS_INFO_SYSTEM_FAILURE, "systemFailure"}
+};
+
+static int ts_check_status_info(TS_RESP *response)
+{
+    TS_STATUS_INFO *info = response->status_info;
+    long status = ASN1_INTEGER_get(info->status);
+    const char *status_text = NULL;
+    char *embedded_status_text = NULL;
+    char failure_text[TS_STATUS_BUF_SIZE] = "";
+
+    if (status == 0 || status == 1)
+        return 1;
+
+    /* There was an error, get the description in status_text. */
+    if (0 <= status && status < (long) OSSL_NELEM(ts_status_text))
+        status_text = ts_status_text[status];
+    else
+        status_text = "unknown code";
+
+    if (sk_ASN1_UTF8STRING_num(info->text) > 0
+        && (embedded_status_text = ts_get_status_text(info->text)) == NULL)
+        return 0;
+
+    /* Fill in failure_text with the failure information. */
+    if (info->failure_info) {
+        int i;
+        int first = 1;
+        for (i = 0; i < (int)OSSL_NELEM(ts_failure_info); ++i) {
+            if (ASN1_BIT_STRING_get_bit(info->failure_info,
+                                        ts_failure_info[i].code)) {
+                if (!first)
+                    strcat(failure_text, ",");
+                else
+                    first = 0;
+                strcat(failure_text, ts_failure_info[i].text);
+            }
+        }
+    }
+    if (failure_text[0] == '\0')
+        strcpy(failure_text, "unspecified");
+
+    TSerr(TS_F_TS_CHECK_STATUS_INFO, TS_R_NO_TIME_STAMP_TOKEN);
+    ERR_add_error_data(6,
+                       "status code: ", status_text,
+                       ", status text: ", embedded_status_text ?
+                       embedded_status_text : "unspecified",
+                       ", failure codes: ", failure_text);
+    OPENSSL_free(embedded_status_text);
+
+    return 0;
+}
+
+struct TS_tst_info_st {
+    ASN1_INTEGER *version;
+    ASN1_OBJECT *policy_id;
+    TS_MSG_IMPRINT *msg_imprint;
+    ASN1_INTEGER *serial;
+    ASN1_GENERALIZEDTIME *time;
+    TS_ACCURACY *accuracy;
+    ASN1_BOOLEAN ordering;
+    ASN1_INTEGER *nonce;
+    GENERAL_NAME *tsa;
+    STACK_OF(X509_EXTENSION) *extensions;
+};
+
+struct TS_verify_ctx {
+    /* Set this to the union of TS_VFY_... flags you want to carry out. */
+    unsigned flags;
+    /* Must be set only with TS_VFY_SIGNATURE. certs is optional. */
+    X509_STORE *store;
+    STACK_OF(X509) *certs;
+    /* Must be set only with TS_VFY_POLICY. */
+    ASN1_OBJECT *policy;
+    /*
+     * Must be set only with TS_VFY_IMPRINT. If md_alg is NULL, the
+     * algorithm from the response is used.
+     */
+    X509_ALGOR *md_alg;
+    unsigned char *imprint;
+    unsigned imprint_len;
+    /* Must be set only with TS_VFY_DATA. */
+    BIO *data;
+    /* Must be set only with TS_VFY_TSA_NAME. */
+    ASN1_INTEGER *nonce;
+    /* Must be set only with TS_VFY_TSA_NAME. */
+    GENERAL_NAME *tsa_name;
+};
+
+struct TS_msg_imprint_st {
+    X509_ALGOR *hash_algo;
+    ASN1_OCTET_STRING *hashed_msg;
+};
+
+static int ts_compute_imprint(BIO *data, TS_TST_INFO *tst_info,
+                              X509_ALGOR **md_alg,
+                              unsigned char **imprint, unsigned *imprint_len)
+{
+    TS_MSG_IMPRINT *msg_imprint = tst_info->msg_imprint;
+    X509_ALGOR *md_alg_resp = msg_imprint->hash_algo;
+    const EVP_MD *md;
+    EVP_MD_CTX *md_ctx = NULL;
+    unsigned char buffer[4096];
+    int length;
+
+    *md_alg = NULL;
+    *imprint = NULL;
+
+    if ((*md_alg = X509_ALGOR_dup(md_alg_resp)) == NULL)
+        goto err;
+    if ((md = EVP_get_digestbyobj((*md_alg)->algorithm)) == NULL) {
+        TSerr(TS_F_TS_COMPUTE_IMPRINT, TS_R_UNSUPPORTED_MD_ALGORITHM);
+        goto err;
+    }
+    length = EVP_MD_size(md);
+    if (length < 0)
+        goto err;
+    *imprint_len = length;
+    if ((*imprint = (unsigned char *)OPENSSL_malloc(*imprint_len)) == NULL) {
+        TSerr(TS_F_TS_COMPUTE_IMPRINT, ERR_R_MALLOC_FAILURE);
+        goto err;
+    }
+
+    md_ctx = EVP_MD_CTX_new();
+    if (md_ctx == NULL) {
+        TSerr(TS_F_TS_COMPUTE_IMPRINT, ERR_R_MALLOC_FAILURE);
+        goto err;
+    }
+    if (!EVP_DigestInit(md_ctx, md))
+        goto err;
+    while ((length = BIO_read(data, buffer, sizeof(buffer))) > 0) {
+        if (!EVP_DigestUpdate(md_ctx, buffer, length))
+            goto err;
+    }
+    if (!EVP_DigestFinal(md_ctx, *imprint, NULL))
+        goto err;
+    EVP_MD_CTX_free(md_ctx);
+
+    return 1;
+ err:
+    EVP_MD_CTX_free(md_ctx);
+    X509_ALGOR_free(*md_alg);
+    OPENSSL_free(*imprint);
+    *imprint_len = 0;
+    *imprint = 0;
+    return 0;
+}
+
+static int ts_check_policy(const ASN1_OBJECT *req_oid,
+                           const TS_TST_INFO *tst_info)
+{
+    const ASN1_OBJECT *resp_oid = tst_info->policy_id;
+
+    if (OBJ_cmp(req_oid, resp_oid) != 0) {
+        TSerr(TS_F_TS_CHECK_POLICY, TS_R_POLICY_MISMATCH);
+        return 0;
+    }
+
+    return 1;
+}
+
+static int ts_check_imprints(X509_ALGOR *algor_a,
+                             const unsigned char *imprint_a, unsigned len_a,
+                             TS_TST_INFO *tst_info)
+{
+    TS_MSG_IMPRINT *b = tst_info->msg_imprint;
+    X509_ALGOR *algor_b = b->hash_algo;
+    int ret = 0;
+
+    if (algor_a) {
+        if (OBJ_cmp(algor_a->algorithm, algor_b->algorithm))
+            goto err;
+
+        /* The parameter must be NULL in both. */
+        if ((algor_a->parameter
+             && ASN1_TYPE_get(algor_a->parameter) != V_ASN1_NULL)
+            || (algor_b->parameter
+                && ASN1_TYPE_get(algor_b->parameter) != V_ASN1_NULL))
+            goto err;
+    }
+
+    ret = len_a == (unsigned)ASN1_STRING_length(b->hashed_msg) &&
+        memcmp(imprint_a, ASN1_STRING_get0_data(b->hashed_msg), len_a) == 0;
+ err:
+    if (!ret)
+        TSerr(TS_F_TS_CHECK_IMPRINTS, TS_R_MESSAGE_IMPRINT_MISMATCH);
+    return ret;
+}
+
+static int ts_check_nonces(const ASN1_INTEGER *a, TS_TST_INFO *tst_info)
+{
+    const ASN1_INTEGER *b = tst_info->nonce;
+
+    if (!b) {
+        TSerr(TS_F_TS_CHECK_NONCES, TS_R_NONCE_NOT_RETURNED);
+        return 0;
+    }
+
+    /* No error if a nonce is returned without being requested. */
+    if (ASN1_INTEGER_cmp(a, b) != 0) {
+        TSerr(TS_F_TS_CHECK_NONCES, TS_R_NONCE_MISMATCH);
+        return 0;
+    }
+
+    return 1;
+}
+
+static int ts_find_name(STACK_OF(GENERAL_NAME) *gen_names, GENERAL_NAME *name)
+{
+    int i, found;
+    for (i = 0, found = 0; !found && i < sk_GENERAL_NAME_num(gen_names); ++i) {
+        GENERAL_NAME *current = sk_GENERAL_NAME_value(gen_names, i);
+        found = GENERAL_NAME_cmp(current, name) == 0;
+    }
+    return found ? i - 1 : -1;
+}
+
+static int ts_check_signer_name(GENERAL_NAME *tsa_name, X509 *signer)
+{
+    STACK_OF(GENERAL_NAME) *gen_names = NULL;
+    int idx = -1;
+    int found = 0;
+
+    if (tsa_name->type == GEN_DIRNAME
+        && X509_name_cmp(tsa_name->d.dirn, X509_get_subject_name(signer)) == 0)
+        return 1;
+    gen_names = (STACK_OF(GENERAL_NAME)*)X509_get_ext_d2i(signer, NID_subject_alt_name, NULL, &idx);
+    while (gen_names != NULL) {
+        found = ts_find_name(gen_names, tsa_name) >= 0;
+        if (found)
+            break;
+        /*
+         * Get the next subject alternative name, although there should be no
+         * more than one.
+         */
+        GENERAL_NAMES_free(gen_names);
+        gen_names = (STACK_OF(GENERAL_NAME)*)X509_get_ext_d2i(signer, NID_subject_alt_name, NULL, &idx);
+    }
+    GENERAL_NAMES_free(gen_names);
+
+    return found;
+}
+
+static int int_ts_RESP_verify_token(TS_VERIFY_CTX *ctx,
+                                    PKCS7 *token, TS_TST_INFO *tst_info)
+{
+    X509 *signer = NULL;
+    GENERAL_NAME *tsa_name = tst_info->tsa;
+    X509_ALGOR *md_alg = NULL;
+    unsigned char *imprint = NULL;
+    unsigned imprint_len = 0;
+    int ret = 0;
+    int flags = ctx->flags;
+
+    /* Some options require us to also check the signature */
+    if (((flags & TS_VFY_SIGNER) && tsa_name != NULL)
+            || (flags & TS_VFY_TSA_NAME)) {
+        flags |= TS_VFY_SIGNATURE;
+    }
+
+    if ((flags & TS_VFY_SIGNATURE)
+        && !TS_RESP_verify_signature(token, ctx->certs, ctx->store, &signer))
+        goto err;
+    if ((flags & TS_VFY_VERSION)
+        && TS_TST_INFO_get_version(tst_info) != 1) {
+        TSerr(TS_F_INT_TS_RESP_VERIFY_TOKEN, TS_R_UNSUPPORTED_VERSION);
+        goto err;
+    }
+    if ((flags & TS_VFY_POLICY)
+        && !ts_check_policy(ctx->policy, tst_info))
+        goto err;
+    if ((flags & TS_VFY_IMPRINT)
+        && !ts_check_imprints(ctx->md_alg, ctx->imprint, ctx->imprint_len,
+                              tst_info))
+        goto err;
+    if ((flags & TS_VFY_DATA)
+        && (!ts_compute_imprint(ctx->data, tst_info,
+                                &md_alg, &imprint, &imprint_len)
+            || !ts_check_imprints(md_alg, imprint, imprint_len, tst_info)))
+        goto err;
+    if ((flags & TS_VFY_NONCE)
+        && !ts_check_nonces(ctx->nonce, tst_info))
+        goto err;
+    if ((flags & TS_VFY_SIGNER)
+        && tsa_name && !ts_check_signer_name(tsa_name, signer)) {
+        TSerr(TS_F_INT_TS_RESP_VERIFY_TOKEN, TS_R_TSA_NAME_MISMATCH);
+        goto err;
+    }
+    if ((flags & TS_VFY_TSA_NAME)
+        && !ts_check_signer_name(ctx->tsa_name, signer)) {
+        TSerr(TS_F_INT_TS_RESP_VERIFY_TOKEN, TS_R_TSA_UNTRUSTED);
+        goto err;
+    }
+    ret = 1;
+
+ err:
+    X509_free(signer);
+    X509_ALGOR_free(md_alg);
+    OPENSSL_free(imprint);
+    return ret;
+}
+
+#endif
+
 void Verify_timestamp_request(PA_PluginParameters params) {
     
     PackagePtr pParams = (PackagePtr)params->fParameters;
@@ -539,10 +937,16 @@ void Verify_timestamp_request(PA_PluginParameters params) {
         TS_REQ *query = NULL;
         BIO *bio_query = NULL;
         
+#if USE_STATIC_OPENSSL_FONCTION_FOR_TRACE
+        PKCS7 *pkcs7_token = NULL;
+        TS_TST_INFO *tst_info = NULL;
+#endif
+        
         if ((response = d2i_TS_RESP_bio(bio_Param1, NULL)) == NULL)
             goto end;
         
         bio_response = BIO_new(BIO_s_mem());
+        
         if(TS_RESP_print_bio(bio_response, response)) {
             char *buf = NULL;
             int len = (int)BIO_get_mem_data(bio_response, &buf);
@@ -551,20 +955,22 @@ void Verify_timestamp_request(PA_PluginParameters params) {
                 ob_set_s(returnValue, L"tsr", (const char *)u8.c_str());
             }
         }
+        
         BIO_free(bio_response);
         
-         if ((query = d2i_TS_REQ_bio(bio_Param2, NULL)) == NULL)
-             goto end;
-         
-         bio_query = BIO_new(BIO_s_mem());
-         if(TS_REQ_print_bio(bio_query, query)) {
-             char *buf = NULL;
-             int len = (int)BIO_get_mem_data(bio_query, &buf);
-             if(len){
-                 CUTF8String u8 = CUTF8String((const uint8_t *)buf, len);
-                 ob_set_s(returnValue, L"tsq", (const char *)u8.c_str());
-             }
-         }
+        if ((query = d2i_TS_REQ_bio(bio_Param2, NULL)) == NULL)
+            goto end;
+        
+        bio_query = BIO_new(BIO_s_mem());
+        if(TS_REQ_print_bio(bio_query, query)) {
+            char *buf = NULL;
+            int len = (int)BIO_get_mem_data(bio_query, &buf);
+            if(len){
+                CUTF8String u8 = CUTF8String((const uint8_t *)buf, len);
+                ob_set_s(returnValue, L"tsq", (const char *)u8.c_str());
+            }
+        }
+        
         BIO_free(bio_query);
         
         if ((verify_ctx = create_verify_ctx(query,
@@ -572,13 +978,28 @@ void Verify_timestamp_request(PA_PluginParameters params) {
                                             cafile,
                                             castore,
                                             untrusted,
-                                            vpm)) == NULL)
+                                            vpm)) == NULL) {
             goto end;
         
-        ret = TS_RESP_verify_response(verify_ctx, response);
-
-        TS_VERIFY_CTX_free(verify_ctx);
+        }
+            
+#if USE_STATIC_OPENSSL_FONCTION_FOR_TRACE
+      
+        tst_info = response->tst_info;
+        pkcs7_token = response->token;
         
+        if (ts_check_status_info(response){
+                if(int_ts_RESP_verify_token(verify_ctx, pkcs7_token, tst_info)) {
+                
+                    ret = true;
+                    
+            }
+        }
+#else
+            ret = TS_RESP_verify_response(verify_ctx, response);
+#endif
+            TS_VERIFY_CTX_free(verify_ctx);
+
         end:
         
         if(ret) {

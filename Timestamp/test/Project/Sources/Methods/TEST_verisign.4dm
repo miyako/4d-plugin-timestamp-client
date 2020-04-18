@@ -22,23 +22,20 @@ ARRAY TEXT:C222($hv;1)
 $hn{1}:="Content-Type"
 $hv{1}:="application/timestamp-query"
 
-$status:=HTTP Request:C1158(HTTP POST method:K71:2;"https://freetsa.org/tsr";$TSQ;$TSR;$hn;$hv)
+$status:=HTTP Request:C1158(HTTP POST method:K71:2;"http://timestamp.digicert.com";$TSQ;$TSR;$hn;$hv)
 
-ASSERT:C1129($status=200)
+$capath:=Get 4D folder:C485(Current resources folder:K5:16)+"digicert.com"+Folder separator:K24:12
 
-$capath:=Get 4D folder:C485(Current resources folder:K5:16)+"freetsa.org"+Folder separator:K24:12
-
-$cafile:=$capath+"cacert.cer.der"
+$cafile:=$capath+"VeriSign Universal Root Certification Authority.pem"
+$untrusted:=$capath+"VeriSign Japan Time Stamping CA.pem"  //not needed if tsq was created with "cert" (default)
 
 $params:=New object:C1471("cafile";$cafile)
 
 $verify:=Verify timestamp request ($TSR;$TSQ;$params)
 
-ASSERT:C1129($verify.success)
 
-$cafile:=$capath+"cacert.cer.pem"
 
-$params:=New object:C1471("cafile";$cafile)
+$params:=New object:C1471("cafile";$cafile;"untrusted";$untrusted)
 
 $verify:=Verify timestamp request ($TSR;$TSQ;$params)
 

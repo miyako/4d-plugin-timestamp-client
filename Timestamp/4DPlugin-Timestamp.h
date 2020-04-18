@@ -68,4 +68,6 @@ typedef enum {
 
 # define NONCE_LENGTH 64
 
+#define USE_STATIC_OPENSSL_FONCTION_FOR_TRACE 0
+
 #endif /* PLUGIN_TIMESTAMP_H */
