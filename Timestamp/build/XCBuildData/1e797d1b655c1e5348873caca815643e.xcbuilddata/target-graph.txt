@@ -1,2 +1,0 @@
-Target dependency graph (1 target)
-Target 'Timestamp' in project 'Timestamp' (no dependencies)
