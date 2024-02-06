@@ -1,4 +1,4 @@
-﻿{
+{
 	"Sources/DatabaseMethods/onStartup.4dm": {
 		"left": 322,
 		"top": 651,
@@ -149,12 +149,6 @@
 		"width": 877,
 		"height": 662
 	},
-	"Sources/Methods/update_manifest_json.4dm": {
-		"left": 478,
-		"top": 140,
-		"width": 1129,
-		"height": 787
-	},
 	"Sources/Methods/TEST_TSR.4dm": {
 		"left": 145,
 		"top": 469,
@@ -168,10 +162,10 @@
 		"height": 799
 	},
 	"Sources/Methods/TEST_freetsa.4dm": {
-		"left": 258,
-		"top": 150,
+		"left": 274,
+		"top": 346,
 		"width": 1071,
-		"height": 650
+		"height": 594
 	},
 	"Trash/Methods/(TEST_comodo).4dm": {
 		"left": 256,
@@ -183,24 +177,6 @@
 		"left": 194,
 		"top": 392,
 		"width": 845,
-		"height": 573
-	},
-	"Sources/Methods/TEST_safestamper.4dm": {
-		"left": 349,
-		"top": 136,
-		"width": 1119,
-		"height": 735
-	},
-	"Sources/Methods/TEST_freetsa_verify.4dm": {
-		"left": 194,
-		"top": 392,
-		"width": 1035,
-		"height": 573
-	},
-	"Sources/Methods/TEST_safestamper_verify.4dm": {
-		"left": 194,
-		"top": 392,
-		"width": 1035,
 		"height": 573
 	},
 	"Trash/Methods/(TEST_digicert1).4dm": {
@@ -215,16 +191,40 @@
 		"width": 1155,
 		"height": 609
 	},
-	"Sources/Methods/TEST_verisign.4dm": {
-		"left": 198,
-		"top": 218,
-		"width": 1071,
-		"height": 650
+	"Trash/Methods/(update_manifest_json).4dm": {
+		"left": 478,
+		"top": 140,
+		"width": 1129,
+		"height": 787
 	},
-	"Sources/Methods/TEST_apple.4dm": {
+	"Trash/Methods/(TEST_verisign).4dm": {
+		"left": 198,
+		"top": 246,
+		"width": 1071,
+		"height": 622
+	},
+	"Trash/Methods/(TEST_apple).4dm": {
 		"left": 150,
 		"top": 268,
 		"width": 1071,
 		"height": 650
+	},
+	"Trash/Methods/(TEST_safestamper_verify).4dm": {
+		"left": 194,
+		"top": 392,
+		"width": 1035,
+		"height": 573
+	},
+	"Trash/Methods/(TEST_safestamper).4dm": {
+		"left": 349,
+		"top": 192,
+		"width": 1119,
+		"height": 679
+	},
+	"Trash/Methods/(TEST_freetsa_verify).4dm": {
+		"left": 194,
+		"top": 420,
+		"width": 1035,
+		"height": 545
 	}
 }
