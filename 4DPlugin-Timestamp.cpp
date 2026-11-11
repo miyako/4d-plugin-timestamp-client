@@ -10,6 +10,8 @@
 
 #include "4DPlugin-Timestamp.h"
 
+#include <cmath>
+
 #pragma mark -
 
 void OnStartup() {
@@ -52,6 +54,7 @@ void CC_EVP(const EVP_MD *evp, uint32_t mlen, const void *data, uint32_t len, un
     
     unsigned int mdlen = mlen;
     EVP_MD_CTX* c = EVP_MD_CTX_new();
+    if(!c) return;
     EVP_MD_CTX_reset(c);
     EVP_DigestInit(c, evp);
     EVP_DigestUpdate(c, data, len);
@@ -86,6 +89,8 @@ ASN1_INTEGER *create_nonce(int bits) {
     OPENSSL_free(nonce->data);
     nonce->length = len - i;
     nonce->data = (unsigned char *)app_malloc(nonce->length + 1, "nonce buffer");
+    if (nonce->data == NULL)
+        goto err;
     memcpy(nonce->data, buf + i, nonce->length);
     return nonce;
 
@@ -119,11 +124,29 @@ void CC_HASH(unsigned int hashlen,
 
     uint8_t *buf = (uint8_t *)calloc(hashlen, sizeof(uint8_t));
     
+    if(!buf) return;
+    
     CC((unsigned char *)Param1.getBytesPtr(), Param1.getBytesLength(), evp, hashlen, buf);
 
     returnValue.setBytes((const uint8_t *)buf, hashlen);
     
     free(buf);
+}
+
+/*
+ Read a small enum index from an object property. ob_get_n returns a double;
+ converting a negative, NaN or huge double to an integer is undefined
+ behaviour, so anything that is not a finite number in [0, 255] returns
+ fallback instead. Callers map the result onto their enum explicitly.
+ */
+static int timestamp_ob_get_index(PA_ObjectRef options, const wchar_t *key, int fallback) {
+    
+    double d = ob_get_n(options, key);
+    
+    if(!std::isfinite(d) || d < 0 || d > 255)
+        return fallback;
+    
+    return (int)d;
 }
 
 #pragma mark -
@@ -157,8 +180,10 @@ void Create_timestamp_query(PA_PluginParameters params) {
     CUTF8String policyOid;
     
     if(options) {
-		unsigned int i = ob_get_n(options, L"format");
-        export_format = (timestamp_export_format_t)i;
+        /* read even when absent: a missing "format" is 0 (text), as before */
+        export_format = (timestamp_ob_get_index(options, L"format", 0) == timestamp_export_format_asn1)
+        ? timestamp_export_format_asn1
+        : timestamp_export_format_text;
         
         if(ob_is_defined(options, L"no_nonce")) {
             no_nonce = ob_get_b(options, L"no_nonce");
@@ -169,8 +194,23 @@ void Create_timestamp_query(PA_PluginParameters params) {
         }
         
         if(ob_is_defined(options, L"hash")) {
-			unsigned int i = ob_get_n(options, L"hash");
-            hash_type = (timestamp_query_hash_type_t)i;
+            switch (timestamp_ob_get_index(options, L"hash", timestamp_query_hash_type_sha512)) {
+                case timestamp_query_hash_type_sha384:
+                    hash_type = timestamp_query_hash_type_sha384;
+                    break;
+                case timestamp_query_hash_type_sha256:
+                    hash_type = timestamp_query_hash_type_sha256;
+                    break;
+                case timestamp_query_hash_type_sha224:
+                    hash_type = timestamp_query_hash_type_sha224;
+                    break;
+                case timestamp_query_hash_type_sha1:
+                    hash_type = timestamp_query_hash_type_sha1;
+                    break;
+                default:
+                    hash_type = timestamp_query_hash_type_sha512;
+                    break;
+            }
         }
         
         if(ob_is_defined(options, L"policy")) {
@@ -373,6 +413,8 @@ X509_STORE *create_cert_store(const char *CApath, const char *CAfile,
     X509_LOOKUP *lookup = NULL;
 
     cert_ctx = X509_STORE_new();
+    if (cert_ctx == NULL)
+        return NULL;
     X509_STORE_set_verify_cb(cert_ctx, verify_cb);
     
     if (CApath != NULL) {
@@ -924,6 +966,7 @@ void Verify_timestamp_request(PA_PluginParameters params) {
     
     if ((vpm = X509_VERIFY_PARAM_new())) {
         
+        /* NULL for an empty BLOB (getBytesPtr returns NULL); checked below */
         BIO *bio_Param1 = BIO_new_mem_buf((void *)Param1.getBytesPtr(), Param1.getBytesLength());
         BIO *bio_Param2 = BIO_new_mem_buf((void *)Param2.getBytesPtr(), Param2.getBytesLength());
                 
@@ -942,12 +985,15 @@ void Verify_timestamp_request(PA_PluginParameters params) {
         TS_TST_INFO *tst_info = NULL;
 #endif
         
+        if (bio_Param1 == NULL || bio_Param2 == NULL)
+            goto end;
+        
         if ((response = d2i_TS_RESP_bio(bio_Param1, NULL)) == NULL)
             goto end;
         
         bio_response = BIO_new(BIO_s_mem());
         
-        if(TS_RESP_print_bio(bio_response, response)) {
+        if(bio_response && TS_RESP_print_bio(bio_response, response)) {
             char *buf = NULL;
             int len = (int)BIO_get_mem_data(bio_response, &buf);
             if(len){
@@ -962,7 +1008,7 @@ void Verify_timestamp_request(PA_PluginParameters params) {
             goto end;
         
         bio_query = BIO_new(BIO_s_mem());
-        if(TS_REQ_print_bio(bio_query, query)) {
+        if(bio_query && TS_REQ_print_bio(bio_query, query)) {
             char *buf = NULL;
             int len = (int)BIO_get_mem_data(bio_query, &buf);
             if(len){
@@ -1008,6 +1054,10 @@ void Verify_timestamp_request(PA_PluginParameters params) {
         
         TS_REQ_free(query);
         TS_RESP_free(response);
+        
+        /* the input BIOs were never freed: two leaks per call */
+        BIO_free(bio_Param1);
+        BIO_free(bio_Param2);
         
         X509_VERIFY_PARAM_free(vpm);
     }
